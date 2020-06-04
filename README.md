@@ -2,8 +2,15 @@
 
 This repo hosts materials used for online training and it's awesome.
 
-This is another line.
+## Install conda environment
 
-And this is another one!
+```bash
+conda env create -n pinus -f config/env.yaml
+```
 
-Hello!
+OBS: you need to activate the conda environment before running the snakemake workflow!
+
+```bash
+conda activate pinus
+```
+
