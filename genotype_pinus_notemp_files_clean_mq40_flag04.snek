@@ -1,0 +1,147 @@
+configfile: "config/config.yaml"
+import os, tempfile
+import numpy as np
+
+tmp_dir = tempfile.gettempdir()
+
+# Functions for alignment filtering
+def evaluate_clipping(i):
+    i = i.split()
+    lseq = len(i[9])
+    sc = re.findall(r'(\d+)[SH]', i[5])
+    sc = map(lambda x:int(x),sc)
+    sc = sum(sc)
+    return lseq, sc
+
+def filter_clipping(infile=None, outfile=None, clip_threshold=0.3):
+    inhandle = open(infile, 'r')
+    outhandle = open(outfile, 'w')
+    for l in inhandle:
+        # write header as it is
+        if l.startswith("@"):
+            _ = outhandle.write(l)
+        else:
+            lseq, sc = evaluate_clipping(l)
+            if sc/lseq < clip_threshold:
+                _ = outhandle.write(l)
+    outhandle.close()
+    return True
+
+wild = list()
+#wild1, = ["190522_deplex_norAga_Hiplex_tag_77.fq", "190522_deplex_norAga_Hiplex_tag_78.fq", "190522_deplex_norAga_Hiplex_tag_79.fq"]
+wild1, = glob_wildcards(os.path.join(config["Raw_Folder"], config["sample_pattern"]+"{sample}.fq"))
+#print(wild1)
+
+wild = list(set(wild1))
+wild = [sample for sample in wild if not sample.endswith("_call2")]
+print(wild)
+ruleorder: transform > call
+
+rule all:
+    input:
+        os.path.join(config["Data_Folder"],"all_merged.vcf"),
+        expand(os.path.join(config["Data_Folder"], "{sample}.cleaned.vcf.bgz.tbi"), sample=wild)
+
+# BWA
+rule index:
+    input:
+        config["reference"]
+    output:
+        config["reference"] + ".pac"
+    conda:
+        "config/env.yaml"
+    shell:
+        "set +u; bwa index -a bwtsw {input}"
+
+rule map:
+    input:
+        forw = os.path.join(config["Raw_Folder"], config["sample_pattern"]+"{sample}.fq"),
+        ref = config["reference"],
+        index = config["reference"] + ".pac"
+    output:
+        os.path.join(config["Data_Folder"], "{sample}.bam")
+        #temp(os.path.join(config["Data_Folder"], "{sample}.bam"))
+    threads:
+        4
+    conda:
+        "config/env.yaml"
+    shell:
+        "bwa mem -t {threads} {input.ref} {input.forw} | samtools sort -@{threads} -O BAM -o {output} "
+
+
+rule cleanBam:
+    input:
+        "{file}.bam"
+    output:
+        "{file}_call2.bam"
+        #temp("{file}_call2.bam")
+    conda:
+        "config/env.yaml"
+    shell:
+        "samtools view -bh -q40 -F 0x04 {input} > {output}"
+        # "samtools view -bh -q30 -f 0x02 {input} > {output}"
+
+rule cleanBam2:
+    input:
+        "{file}_call2.bam"
+    output:
+        os.path.join(config["Data_Folder"], "{file}_call3.bam")
+    params:
+        tmp_sam = tmp_dir + "/{file}_call2.sam",
+        tmp_filt_sam = tmp_dir + "/{file}_call3.sam",
+        clip_threshold = config["clip_threshold"]
+    run:
+        # convert bam to sam in temp folder
+        shell("samtools view -h {input} > {params.tmp_sam}")
+        filter_clipping(infile=params.tmp_sam, outfile=params.tmp_filt_sam, clip_threshold=params.clip_threshold)
+        shell("samtools view -b {params.tmp_filt_sam} > {output}")
+
+# Samtools mpileup (for the complete file and subsamples)
+rule call:
+    input:
+        mapping = os.path.join(config["Data_Folder"], "{sample}_call3.bam"),
+        ref = config["reference"],
+    output:
+        os.path.join(config["Data_Folder"], "{sample}.vcf.gz")
+        #temp(os.path.join(config["Data_Folder"], "{sample}.vcf.gz"))
+    priority:
+        50
+    conda:
+        "config/env.yaml"
+    shell:
+        #why not use samtools mpileup  
+        "bcftools mpileup --skip-indels  -Oz -f {input.ref} {input.mapping} -o {output}"
+
+rule transform:
+    priority:
+        100
+    input:
+        rules.call.output
+    output:
+        protected(os.path.join(config["Data_Folder"], "{sample}.cleaned.vcf.bgz"))
+    conda:
+        "config/env.yaml"
+    shell:
+        "bcftools call -Oz --output {output}  --skip-variants indels -m {input}"
+
+# tabix
+rule tabix:
+    input:
+        "{sample}.cleaned.vcf.bgz"
+    output:
+        "{sample}.cleaned.vcf.bgz.tbi"
+    conda:
+        "config/env.yaml"
+    shell:
+        "tabix -p vcf {input}"
+
+rule merge_all:
+    input:
+        index=expand(os.path.join(config["Data_Folder"], "{sample}.cleaned.vcf.bgz.tbi"), sample=wild),
+        sampls=expand(os.path.join(config["Data_Folder"], "{sample}.cleaned.vcf.bgz"), sample=wild),
+    output:
+        os.path.join(config["Data_Folder"],"all_merged.vcf")
+    conda:
+        "config/env.yaml"
+    shell:
+        "bcftools merge -Oz -o {output} {input.sampls}  && tabix -p vcf {output}"
