@@ -9,5 +9,5 @@
 . /nethomes/lade0002/miniconda3/etc/profile.d/conda.sh
 conda activate base
 conda activate pinus
-snakemake -j 20 -rp --keep-going -s genotype_pinus_notemp_files_clean_mq40_flag04.snek
+snakemake -j 20 -rp --keep-going -s genotype_pinus_notemp_files_clean_mq40_flag04_dom5.snek
 #snakemake --help
