@@ -86,8 +86,6 @@ rule cleanBam2:
         os.path.join(config["Data_Folder"], "{sample}_call2.bam")
     output:
         os.path.join(config["Data_Folder"], "{sample}_call3.bam")
-    conda:
-        "config/env.yaml"
     params:
         tmp_sam = tmp_dir + "/{sample}_call2.sam",
         tmp_filt_sam = tmp_dir + "/{sample}_call3.sam",
