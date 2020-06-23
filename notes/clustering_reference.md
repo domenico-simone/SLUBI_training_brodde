@@ -157,3 +157,141 @@ PATH=$PATH:/nfs4/my-gridfront/mykopat-proj3/mykopat-pineg/cd-hit-v4.8.1-2019-022
 psi-cd-hit.pl -i genus_pinus_2.fasta -o pinus_clust -c 0.9 -G 1 -g 1 -prog megablast -s"-F F -e 0.000001 -b 100000 -v 100000" -exec local -core 32
 ```
 --> empty output and error file, job stops running after ~2sec
+**--> It worked!!!**
+
+##### 18.06.2020
+--> use -prog blastn? (megablast not installed!)
+
+```bash
+psi-cd-hit.pl -i genus_pinus_2.fasta -o pinus_clust -c 0.9 -G 1 -g 1 -prog blastn -s"-F F -e 0.000001 -b 100000 -v 100000" -exec local -core 32
+```
+
+**checking output from 17.06.**
+input: 1860207 May 25 15:34  genus_pinus_2.fasta
+output: 15378 Jun 17 16:04  pinus_clust.clstr
+
+
+outputfiles:
+pinus_clust
+pinus_clust.clstr
+ pinus_clust.log
+ pinus_clust.out
+pinus_clust.restart
+
+How can I do some quality control on the .fasta file?
+
+```bash
+cat pinus_clust.clstr | head
+#output:
+>Cluster 0
+0       1191054aa, >gi|1511245057|ref|NC_039746.1|... *
+>Cluster 1
+0       129758aa, >gi|297747440|gb|AC241324.1|... *
+>Cluster 2
+0       113688aa, >gi|302024684|gb|AC241353.2|... *
+>Cluster 3
+0       57157aa, >gi|725798652|gb|KP172196.1|... *
+>Cluster 4
+0       8296aa, >gi|572218767|gb|GAQR01038049.1|... *
+```
+
+##### 18.06.2020
+
+*session with Domenico*
+
+- checking how many sequences are present in original (input) file:
+```bash
+grep -c ">" genus_pinus_2.fasta
+269
+```
+
+- checking how many clusters
+```bash
+grep -c ">Cluster" pinus_clust.clstr
+269
+```
+
+
+- problems with clusters of first run --> as many clusters as Sequences
+- setting up new clustering, altered settings in command, we had much trouble to get it running
+  - new installation of biopyhton *etc pp*
+  - in the end it succeeded with job submission
+
+**job submission**
+```bash
+#!/bin/bash
+
+#$ -cwd
+#$ -V
+#$ -l h_rt=7:0:0
+#$ -l h_vmem=50G
+
+#source $HOME/.bashrc
+export PATH=/nfs4/my-gridfront/mykopat-proj3/mykopat-pineg/cdhit-master/psi-cd-hit:$PATH
+psi-cd-hit.pl -i genus_pinus_2.fasta -o pinus_clust_TEST_2 -c 0.9 -G 1 -g 1 -prog blastn -exec local -blp 10
+
+## note: -blp 10 --> -cluster 32 option in guide was not existent in this script version
+
+```
+
+- checking output file *pinus_clust_TEST_2.clstr*
+```bash
+>Cluster 0
+0       1191054aa, >gi|1511245057|ref|NC_039746.1|... *
+>Cluster 1
+0       129758aa, >gi|297747440|gb|AC241324.1|... *
+>Cluster 2
+0       113688aa, >gi|302024684|gb|AC241353.2|... *
+>Cluster 3
+0       57157aa, >gi|725798652|gb|KP172196.1|... *
+1       795aa, >gi|292544593|gb|GW760802.1|... at 0.0/791aa/96.72%
+2       761aa, >gi|292525974|gb|GW748131.1|... at 0.0/759aa/90.67%
+3       244aa, >gi|339403872|emb|FN941260.1|... at 9e-100/244aa/93.44%
+>Cluster 4
+0       8296aa, >gi|572218767|gb|GAQR01038049.1|... *
+1       7380aa, >gi|572218765|gb|GAQR01038051.1|... at 0.0/7319aa/99.17%
+2       7220aa, >gi|572218766|gb|GAQR01038050.1|... at 0.0/7036aa/97.45%
+>Cluster 5
+0       8196aa, >gi|572218769|gb|GAQR01038047.1|... *
+1       7280aa, >gi|572218771|gb|GAQR01038045.1|... at 0.0/7219aa/99.16%
+2       7120aa, >gi|572218770|gb|GAQR01038046.1|... at 0.0/6936aa/97.41%
+>Cluster 6
+0       8136aa, >gi|572218764|gb|GAQR01038052.1|... *
+>Cluster 7
+0       8036aa, >gi|572218768|gb|GAQR01038048.1|... *
+>Cluster 8
+0       7212aa, >gi|572224302|gb|GAQR01033122.1|... *
+1       7017aa, >gi|572224300|gb|GAQR01033124.1|... at 0.0/4546:2472aa/100.01%
+2       800aa, >gi|1769155215|dbj|HX995365.1|... at 0.0/800aa/99.37%
+3       535aa, >gi|38012458|emb|BX678520.1|... at 0.0/531aa/90.84%
+>Cluster 9
+0       6048aa, >gi|572234274|gb|GAQR01023150.1|... *
+>Cluster 10
+0       4926aa, >gi|572224883|gb|GAQR01032541.1|... *
+1       811aa, >gi|49445315|gb|CO363998.1|... at 0.0/810aa/97.78%
+2       607aa, >gi|38014923|emb|BX680467.1|... at 0.0/607aa/98.18%
+>Cluster 11
+0       4024aa, >gi|572240288|gb|GAQR01017136.1|... *
+>Cluster 12
+0       3933aa, >gi|572226739|gb|GAQR01030685.1|... *
+```
+
+- checking how many clusters by grep'ing ">" / ">Cluster" which is starter of each new cluster:
+
+```bash
+grep -c ">" pinus_clust_TEST_2 #file with sequences
+112
+
+grep -c ">Cluster" pinus_clust_TEST_2.clstr # file with cluster output
+112
+```
+--> less clusters than original input file! :)
+
+--> take this file [pinus_clust_TEST_2.clstr] as new reference for variant calling!!
+--> try out different thresholds of identity ( -c option in psi-cd-hit.pl) for clustering
+
+- renaming cluster file into .fasta file
+
+```bash
+cp pinus_clust_TEST_2 pinus_clust_ref.fasta
+```
