@@ -1,11 +1,11 @@
 reference:
-    /proj/mykopat-pineg/Hiplex_data/genus_pinus.fasta
+    /proj/mykopat-pineg/Hiplex_data/pinus_clust_ref.fasta
 sample_pattern:
     "190522_deplex_norAga_Hiplex_tag_"
 
 Raw_Folder:
     /proj/mykopat-pineg/Hiplex_data/hiplex_data
 Data_Folder:
-    /proj/mykopat-pineg/Hiplex_data_200508/processed_clipping_200519
+    /proj/mykopat-pineg/SLUBI_training_brodde/200623_output
 clip_threshold:
     0.3
